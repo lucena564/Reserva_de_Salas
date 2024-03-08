@@ -16,5 +16,6 @@ def start_serv():
 server = Rdt("server",'s')
 
 start_serv()
+# print("Aberto")
 
 server.waiting()

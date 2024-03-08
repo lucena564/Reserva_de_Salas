@@ -6,6 +6,7 @@ from datetime import *
 import sys
 import select
 from math import *
+import re
 
 
 class Rdt:
@@ -28,7 +29,7 @@ class Rdt:
         self.flag = 0
         self.friend_list = []
         HOST = "127.0.0.1"  # Endereço IP do servidor
-        HOST_PORT = 5000         # Porta do servidor
+        HOST_PORT = 5000    # Porta do servidor
         self.dest = (HOST,HOST_PORT)
         if type == 'u':
             self.bufferSize = 1020
@@ -36,6 +37,17 @@ class Rdt:
             origin = (HOST, HOST_PORT)
             self.rdt_socket.bind(origin)
             self.bufferSize = 1024
+
+        self.reservas = {sala: {dia: {hora: None for hora in range(8, 18)} for dia in ['SEG', 'TER', 'QUA', 'QUI', 'SEX']} for sala in ['E101', 'E102', 'E103', 'E104', 'E105']}
+
+        self.mensagem_help = '''Comandos disponíveis:
+* Conectar ao aplicativo: connect as <nome_do_usuario>
+* Sair do aplicativo: bye
+* Exibir lista de usuários conectados no momento: list
+* Reservar uma sala: reservar <numero_da_sala> <dia> <horário>
+* Cancelar uma reserva: cancelar <numero_da_sala> <dia> <horário>
+* Checar disponibilidade de uma sala: check <numero_da_sala> <dia>  
+                                            '''
 
     def sendPkt(self, payload, seqNum): # Converte os dados em uma representação de string e codifica em bytes
         tam = len(payload)
@@ -66,22 +78,45 @@ class Rdt:
             self.addr = addr 
             self.isSender(msg)
 
-    # def broadcast_ban(self):
-    #     if self.counter >= (floor(len(self.users)/2)+1):
-    #         msg = f"{self.counter}/{floor(len(self.users)/2)+1}"
-    #         self.broadcast(msg)
-    #         msg = f"usuario {self.banido} foi banido"
-    #         self.addr = self.users[self.banido]
-    #         self.isSender("voce foi banido")
-    #         del self.users[self.banido]
-    #         self.banido = ""
-    #         self.counter = 0
-    #         self.friend_list.clear()
-    #     elif self.counter == 1:
-    #         msg = "votacao iniciada: 1/" + str(floor(len(self.users)/2)+1)
-    #     else:
-    #         msg = f"banimento de {self.banido}: {self.counter}/{str(floor(len(self.users)/2)+1)}"
-    #     self.broadcast(msg)
+    def verificar_disponibilidade(self, sala, dia, hora):
+        return self.reservas[sala][dia][hora] is None
+
+    def realizar_reserva(self, user_name, sala, dia, hora):
+        if self.verificar_disponibilidade(sala, dia, hora):
+            self.reservas[sala][dia][hora] = user_name
+            return True
+        return False
+
+    def cancelar_reserva(self, user_name, sala, dia, hora):
+        if self.reservas[sala][dia][hora] == user_name:  # Verifica se quem está cancelando é quem reservou
+            self.reservas[sala][dia][hora] = None
+            # msg = f"Você [{user_name}] cancelou a reserva da sala {sala} na {dia} {hora}h"
+            # self.isSender(msg)  # Enviar confirmação de cancelamento para o usuário
+            # self.broadcast(f"{user_name} cancelou a reserva da sala {sala} na {dia} {hora}h")  # Notificar outros usuários
+            return True
+        return False
+    
+    # Função para pegar o formato do reservar
+    def _reservar(self, string):
+        padrao = r'\w+:\sreservar\s(E101|E102|E103|E104|E105)\s(SEG|TER|QUA|QUI|SEX)\s(1[0-8]|[89])$'
+        if re.match(padrao, string):
+            return True
+        else:
+            return False
+        
+    def _cancelar(self, string):
+        padrao = r"^\w+:\scancelar"
+        if re.match(padrao, string):
+            return True
+        else:
+            return False
+        
+    def _check(self, string):
+        padrao = r"^\w+:\scheck"
+        if re.match(padrao, string):
+            return True
+        else:
+            return False
 
     def isReceptor(self):
         self.time = 10000
@@ -97,12 +132,32 @@ class Rdt:
                     pckg = struct.unpack_from(f'i {tam}s', pckg)
                     seq = pckg[0]
                     payload = pckg[1]
-                    # print("Antes de tudo:    " + str(payload))
+
+                    # print("Tamanho do que foi digitado: " + str(tam)) # Tamanho do pacote - 17
+                    # print("Pacote, formato (0, b'Quem_mandou: digitado): " + str(pckg)) # (0, b'Antonio: reservar')
+                    # print("seq - tipo uma flag: " + str(seq)) # 0
+                    # print("A mensagem em si, contando por quem foi enviada: " + str(payload)) # b'Antonio: reservar'
+                    # print("\n")
 
                     if seq == 0:
                         #if(payload[0] == b'FIM'): # Se recebeu mensagem final do sender, encerra o loop
                         self.endFlag=1
                         payload = payload.decode()
+
+                        # Funções para verificar o formato de
+                        reservar = self._reservar(payload)
+                        # print("\n")
+                        # print(reservar)
+                        # print("\n")
+                        cancelar = self._cancelar(payload)
+                        check = self._check(payload)
+
+                        # print("Depois de decodificar: " + str(payload))
+                        # print("Primeiro print: " + str(payload[:]))
+                        # print("Segundo print: " + str(payload[-4:]))
+                        # print("Terceiro print: " + str(payload[-4:10]))
+                        # print("Quarto print: " + str(payload[7:])) # : reservar
+
                         # Quando chega um novo usuário
                         if payload[-5:] == ": SYN":
                             # Se o nome não tiver disponível retorna 24 e é tratado em user.py para escolher outro nome
@@ -115,6 +170,41 @@ class Rdt:
                             self.flag = 1
                             self.payload = str([str(k) for k in self.users.keys()])
 
+                        # elif payload[-10:] == ": reservar":
+                        elif reservar:
+                            parts = payload.split()
+
+                            user_name = parts[0][:-1]
+
+                            # Checar se vai ter disponibilidade de reserva!
+
+                            # Verifique se tem a quantidade correta de partes para o comando 'reservar'
+                            if len(parts) >= 5:  # Deve ser algo como ": reservar sala dia hora"
+                                _, sala, dia_abrev, hora = parts[1:5]
+
+                                # Dicionário para mapear abreviações para nomes completos dos dias da semana
+                                dias_da_semana_completo = {
+                                    "SEG": "Segunda",
+                                    "TER": "Terça",
+                                    "QUA": "Quarta",
+                                    "QUI": "Quinta",
+                                    "SEX": "Sexta"
+                                }
+
+                                sucesso = self.realizar_reserva(self.name, sala, dia_abrev, int(hora))
+
+                                if sucesso:
+                                    # Aqui utilizamos self.addr para obter o IP e a porta do remetente da reserva
+                                    ip, porta = self.addr
+                                    msg = f"{user_name} [{ip}:{porta}] reservou a sala {sala} na {dias_da_semana_completo[dia_abrev]} às {hora}h."
+                                    self.flag = 0
+                                else:
+                                    msg = "Não foi possível realizar a reserva. Verifique os dados e tente novamente."
+                                    self.flag = 1
+
+                                self.payload = msg
+
+
                         elif payload[-5:] == ": bye":
                             aux = payload[0:-5]
                             del self.users[payload[0:-5]]
@@ -124,25 +214,8 @@ class Rdt:
                         
                         elif payload[-8:] == ": --help":
                             self.flag = 1
-                            self.payload =   '''Comandos disponíveis:
-                                                Conectar ao aplicativo: connect as <nome_do_usuario>
-                                                Sair do aplicativo: bye
-                                                Exibir lista de usuários conectados no momento: list
-                                                Reservar uma sala: reservar <numero_da_sala> <dia> <horário>
-                                                Cancelar uma reserva: cancelar <numero_da_sala> <dia> <horário>
-                                                Checar disponibilidade de uma sala: check <numero_da_sala> <dia>  
-                                            '''
-                        # elif ": ban" in payload:
-                        #     string = payload.split(":")
-                        #     if string[1][1:4] == "ban": 
-                        #         if (string[1][5:] == self.banido and string[0] not in self.friend_list) or (self.banido == "" and string[1][5:] in self.users.keys()):
-                        #             self.banido = string[1][5:]
-                        #             self.counter += 1
-                        #             self.friend_list.append(string[0])
-                        #             self.flag = 3
-                        # elif "Você foi banido"in payload:
-                        #     print(payload)
-                        #     self.flag = 666
+                            self.payload = self.mensagem_help
+
                         else:
                             if self.type == "s": 
                                 date_str = str(datetime.now())
@@ -153,12 +226,12 @@ class Rdt:
                                 if nome2[0] in self.friend_list:
                                     payload = nome1[0] + "~[Amigo] " + nome1[1]
                             print(payload)
-                            print("Teste1")
+                            # print("Teste1")
                             self.payload = payload
                         action = "sendAck0"   # Ao receber pacote, se o número de sequência for zero manda ack correspondente
+                    
                     else: 
                         action = "sendAck1" # Se o pacote não é o correto, manda o ack de sequência 1, ao invés disso
-                        #if(payload[0] == b'FIM'): # Se recebeu mensagem final do sender, encerra o loop
                         self.endFlag=1
                 
             elif self.stateR == "waitSeq_1": # Estado de esperar pelo pacote 1
@@ -173,7 +246,6 @@ class Rdt:
                     payload = pckg[1]
 
                     if seq == 1:
-                        #if(payload[0] == b'FIM'): # Se recebeu mensagem final do sender, encerra o loop
                         self.endFlag=1
                         payload = payload.decode()
                         if payload[-5:] == ": SYN":
@@ -185,6 +257,39 @@ class Rdt:
                             self.flag = 1
                             self.payload = str([str(k) for k in self.users.keys()])
 
+                        elif reservar:
+                            parts = payload.split()
+
+                            user_name = parts[0][:-1]
+
+                            # Checar se vai ter disponibilidade de reserva!
+
+                            # Verifique se tem a quantidade correta de partes para o comando 'reservar'
+                            if len(parts) >= 5:  # Deve ser algo como ": reservar sala dia hora"
+                                _, sala, dia_abrev, hora = parts[1:5]
+
+                                # Dicionário para mapear abreviações para nomes completos dos dias da semana
+                                dias_da_semana_completo = {
+                                    "SEG": "Segunda",
+                                    "TER": "Terça",
+                                    "QUA": "Quarta",
+                                    "QUI": "Quinta",
+                                    "SEX": "Sexta"
+                                }
+
+                                sucesso = self.realizar_reserva(self.name, sala, dia_abrev, int(hora))
+
+                                if sucesso:
+                                    # Aqui utilizamos self.addr para obter o IP e a porta do remetente da reserva
+                                    ip, porta = self.addr
+                                    msg = f"{user_name} [{ip}:{porta}] reservou a sala {sala} na {dias_da_semana_completo[dia_abrev]} às {hora}h."
+                                    self.flag = 0
+                                else:
+                                    msg = "Não foi possível realizar a reserva. Verifique os dados e tente novamente."
+                                    self.flag = 1
+
+                                self.payload = msg
+
                         elif payload[-5:] == ": bye":
                             aux = payload[0:-5]
                             del self.users[payload[0:-5]]
@@ -193,25 +298,8 @@ class Rdt:
                         
                         elif payload[-8:] == ": --help":
                             self.flag = 1
-                            self.payload =   '''Comandos disponíveis:
-                                                Conectar ao aplicativo: connect as <nome_do_usuario>
-                                                Sair do aplicativo: bye
-                                                Exibir lista de usuários conectados no momento: list
-                                                Reservar uma sala: reservar <numero_da_sala> <dia> <horário>
-                                                Cancelar uma reserva: cancelar <numero_da_sala> <dia> <horário>
-                                                Checar disponibilidade de uma sala: check <numero_da_sala> <dia>  
-                                            '''
-                        # elif ": ban" in payload:
-                        #     string = payload.split(":")
-                        #     if string[1][1:4] == "ban": 
-                        #         if (string[1][5:] == self.banido and string[0] not in self.friend_list) or (self.banido == "" and string[1][5:] in self.users.keys()):
-                        #             self.banido = string[1][5:]
-                        #             self.counter += 1
-                        #             self.friend_list.append(string[0])
-                        #             self.flag = 3
-                        # elif "voce foi banido"in payload:
-                        #     print(payload)
-                        #     self.flag = 666
+                            self.payload =   self.mensagem_help
+
                         else:
                             if self.type == "s": 
                                 date_str = str(datetime.now())
@@ -227,7 +315,6 @@ class Rdt:
                         action = "sendAck1"   # Ao receber pacote, se o número de sequência for zero manda ack correspondente
                     else: 
                         action = "sendAck0" # Se seq pacote nao for o esperado, manda o ack de sequencia 0, e deve continuar no mesmo estado 
-                        #if(payload[0] == b'FIM'): # Se recebeu mensagem final do sender, encerra o loop
                         self.endFlag=1
 
             if action == "sendAck0":
@@ -297,13 +384,7 @@ class Rdt:
             if action == "sendPktSeq_0":
                 data = mensagem.encode()  # Lê 1024 bytes do arquivo
                 self.fimPck = 1
-                self.sendPkt(data, 0)
-                # if not data:
-                #     self.fimPck = 1
-                #     self.sendPkt(b'FIM', 0)
-                # else:
-                #     self.sendPkt(data, 0)
-                    
+                self.sendPkt(data, 0)                    
                 self.stateS = "waitAck_0"
 
             elif action == "stopTimer_0":
@@ -314,11 +395,6 @@ class Rdt:
                 data = mensagem.encode()    # Lê 1024 bytes do arquivo
                 self.fimPck = 1
                 self.sendPkt(data, 1)
-                # if not data: 
-                #     self.fimPck = 1
-                #     self.sendPkt(b'FIM', 1)
-                # else: # ainda há pacotes para enviar
-                #     self.sendPkt(data, 1)
                 self.stateS = "waitAck_1"
 
             elif action == "stopTimer_1":
@@ -328,23 +404,12 @@ class Rdt:
             elif action == "ReSendPktSeq_0":
                 self.fimPck = 1
                 self.sendPkt(data, 0)
-                # if not data: 
-                #     self.fimPck = 1
-                #     self.sendPkt(b'FIM', 0)
-                # else: # ainda há pacotes para enviar
-                #     self.sendPkt(data, 0)
                 self.stateS = "waitAck_0"
             
             elif action == "ReSendPktSeq_1":
                 self.fimPck = 1
                 self.sendPkt(data, 1)
-                # if not data: 
-                #     self.fimPck = 1
-                #     self.sendPkt(b'FIM', 1)
-                # else: # ainda há pacotes para enviar
-                #     self.sendPkt(data, 1)
                 self.stateS = "waitAck_1"     
-        #file.close()
 
     def waiting(self):
         while True:
@@ -365,9 +430,6 @@ class Rdt:
                         elif self.flag == 2:
                             self.flag = 0
                         else:
-                            if(self.counter > 0):
-                                # self.broadcast_ban()
-                                continue
                             self.flag = 0
                     elif self.flag == 666:
                             return
