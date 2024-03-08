@@ -39,7 +39,8 @@ class Rdt:
             self.bufferSize = 1024
 
         self.reservas = {sala: {dia: {hora: None for hora in range(8, 18)} for dia in ['SEG', 'TER', 'QUA', 'QUI', 'SEX']} for sala in ['E101', 'E102', 'E103', 'E104', 'E105']}
-
+        self.flag_reservar = False # Utilizado para enviar mensagens diferentes aos conectados no servidor.
+        self.user_name = ''
         self.mensagem_help = '''Comandos disponíveis:
 * Conectar ao aplicativo: connect as <nome_do_usuario>
 * Sair do aplicativo: bye
@@ -77,6 +78,12 @@ class Rdt:
         for addr in self.users.values():
             self.addr = addr 
             self.isSender(msg)
+
+    def broadcast_dif(self, msg, sender_addr):
+        for addr in self.users.values():
+            if addr != sender_addr:  # Verificar se o endereço não é do solicitante
+                self.addr = addr 
+                self.isSender(msg)
 
     def verificar_disponibilidade(self, sala, dia, hora):
         return self.reservas[sala][dia][hora] is None
@@ -174,7 +181,8 @@ class Rdt:
                         elif reservar:
                             parts = payload.split()
 
-                            user_name = parts[0][:-1]
+                            self.user_name = parts[0][:-1]
+                            
 
                             # Checar se vai ter disponibilidade de reserva!
 
@@ -196,7 +204,14 @@ class Rdt:
                                 if sucesso:
                                     # Aqui utilizamos self.addr para obter o IP e a porta do remetente da reserva
                                     ip, porta = self.addr
-                                    msg = f"{user_name} [{ip}:{porta}] reservou a sala {sala} na {dias_da_semana_completo[dia_abrev]} às {hora}h."
+
+                                    # Flag para enviar mensagens diferentes
+                                    self.flag_reservar = True
+                                    
+                                    msg_para_solicitante = f"Você [{ip}:{porta}] reservou a sala {sala}."
+                                    msg = f"{self.user_name} [{ip}:{porta}] reservou a sala {sala} na {dias_da_semana_completo[dia_abrev]} às {hora}h. "
+                                    
+                                    msg = msg + msg_para_solicitante
                                     self.flag = 0
                                 else:
                                     msg = "Não foi possível realizar a reserva. Verifique os dados e tente novamente."
@@ -217,6 +232,7 @@ class Rdt:
                             self.payload = self.mensagem_help
 
                         else:
+                            # Tirar isso depois
                             if self.type == "s": 
                                 date_str = str(datetime.now())
                                 payload = f"{self.addr[0]}:{self.addr[1]}/~{payload}" + " " + date_str
@@ -422,7 +438,20 @@ class Rdt:
                     data, client_address = self.rdt_socket.recvfrom(1024)
                     self.isReceptor()
                     if self.type == "s":
-                        if self.flag == 0:
+                        if self.flag == 0 and self.flag_reservar:
+                            # print("Print payload: " + self.payload)
+                            # print("Print payload[-43:]: " + self.payload[-43:])
+                            # # self.payload =  
+                            # print("Print payload[:-43]: " + self.payload[:-43])
+
+                            self.isSender(self.payload[-44:]) # Esse formato sempre será o mesmo por isso posso fazer dessa forma
+                            self.broadcast_dif(self.payload[:-44], self.addr)
+
+                            # self.broadcast_dif(self.payload[:-44], self.user_name)
+
+                            self.flag_reservar = False
+
+                        elif self.flag == 0 and self.flag_reservar == False:
                             self.broadcast(self.payload)
                         elif self.flag == 1:
                             self.isSender(self.payload)
