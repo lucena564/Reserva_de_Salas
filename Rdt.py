@@ -39,6 +39,8 @@ class Rdt:
             self.bufferSize = 1024
 
         self.reservas = {sala: {dia: {hora: None for hora in range(8, 18)} for dia in ['SEG', 'TER', 'QUA', 'QUI', 'SEX']} for sala in ['E101', 'E102', 'E103', 'E104', 'E105']}
+        # self.reservas_aux = {sala: {dia: {hora: None for hora in range(8, 18)} for dia in ['SEG', 'TER', 'QUA', 'QUI', 'SEX']} for sala in ['E101', 'E102', 'E103', 'E104', 'E105']}
+
         self.flag_reservar = False # Utilizado para enviar mensagens diferentes aos conectados no servidor.
         self.user_name = ''
         self.mensagem_help = '''Comandos disponíveis:
@@ -86,7 +88,10 @@ class Rdt:
                 self.isSender(msg)
 
     def verificar_disponibilidade(self, sala, dia, hora):
-        return self.reservas[sala][dia][hora] is None
+    # Não precisa chamar a função recursivamente
+    # Apenas verifique se o valor no dicionário de reservas é None
+        return self.reservas[sala][dia][int(hora)] is None
+
 
     def realizar_reserva(self, user_name, sala, dia, hora):
         if self.verificar_disponibilidade(sala, dia, hora):
@@ -199,22 +204,53 @@ class Rdt:
                                     "SEX": "Sexta"
                                 }
 
-                                sucesso = self.realizar_reserva(self.name, sala, dia_abrev, int(hora))
+                                print("self.reservas 1: " + str(self.reservas[sala][dia_abrev][int(hora)]))
 
-                                if sucesso:
-                                    # Aqui utilizamos self.addr para obter o IP e a porta do remetente da reserva
-                                    ip, porta = self.addr
+                                # Agora quero verificar se há disponibilidade de sala
+                                disponivel = self.verificar_disponibilidade(sala, dia_abrev, int(hora))
 
-                                    # Flag para enviar mensagens diferentes
-                                    self.flag_reservar = True
-                                    
-                                    msg_para_solicitante = f"Você [{ip}:{porta}] reservou a sala {sala}."
-                                    msg = f"{self.user_name} [{ip}:{porta}] reservou a sala {sala} na {dias_da_semana_completo[dia_abrev]} às {hora}h. "
-                                    
-                                    msg = msg + msg_para_solicitante
-                                    self.flag = 0
+                                # str_check = ""
+
+                                # for i in parts[1:]:
+                                #     str_check = str_check + i + " "
+
+                                # str_check = str_check[:-1]
+
+                                # print("\n")
+                                # print(str_check)
+                                # print("\n")
+
+                                # Verifica o formato da mensagem - Retorna True - Já muda o status de self.reservas[...][...][...]
+                                sucesso = self.realizar_reserva(self.user_name, sala, dia_abrev, int(hora))
+                                
+                                # print(self.reservas)
+                                # print(sala)
+                                # print(dia_abrev)
+                                # print(int(hora))
+                                # print("self.reservas 2: " + str(self.reservas[sala][dia_abrev][int(hora)]))
+
+                                # print("\n")
+                                # print("disponivel: " + str(disponivel))
+                                # print("\n")
+
+                                if disponivel:
+                                    if sucesso:
+                                        # Aqui utilizamos self.addr para obter o IP e a porta do remetente da reserva
+                                        ip, porta = self.addr
+
+                                        # Flag para enviar mensagens diferentes
+                                        self.flag_reservar = True
+                                        
+                                        msg_para_solicitante = f"Você [{ip}:{porta}] reservou a sala {sala}."
+                                        msg = f"{self.user_name} [{ip}:{porta}] reservou a sala {sala} na {dias_da_semana_completo[dia_abrev]} às {hora}h. "
+                                        
+                                        msg = msg + msg_para_solicitante
+                                        self.flag = 0
+                                    # else:
+                                    #     msg = "A sala já está reservada. 1"
+                                    #     self.flag = 1
                                 else:
-                                    msg = "Não foi possível realizar a reserva. Verifique os dados e tente novamente."
+                                    msg = "A sala já está reservada."
                                     self.flag = 1
 
                                 self.payload = msg
