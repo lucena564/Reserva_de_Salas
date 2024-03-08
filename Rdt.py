@@ -17,8 +17,8 @@ class Rdt:
         self.file_bytes = 0  
         self.time = 1
         self.type = type
-        self.counter = 0
-        self.banido = ""
+        # self.counter = 0
+        # self.banido = ""
         self.payload = ""
         self.users = {}
         self.addr = (0,0)
@@ -59,29 +59,29 @@ class Rdt:
 
     def add_user(self, name, addr):
         self.users.update({name : addr})
-        self.payload = f"{name} conectou-se ao servidor."       
+        self.payload = f"{name} está avaliando reservas!"       
     
     def broadcast(self, msg):
         for addr in self.users.values():
             self.addr = addr 
             self.isSender(msg)
 
-    def broadcast_ban(self):
-        if self.counter >= (floor(len(self.users)/2)+1):
-            msg = f"{self.counter}/{floor(len(self.users)/2)+1}"
-            self.broadcast(msg)
-            msg = f"usuario {self.banido} foi banido"
-            self.addr = self.users[self.banido]
-            self.isSender("voce foi banido")
-            del self.users[self.banido]
-            self.banido = ""
-            self.counter = 0
-            self.friend_list.clear()
-        elif self.counter == 1:
-            msg = "votacao iniciada: 1/" + str(floor(len(self.users)/2)+1)
-        else:
-            msg = f"banimento de {self.banido}: {self.counter}/{str(floor(len(self.users)/2)+1)}"
-        self.broadcast(msg)
+    # def broadcast_ban(self):
+    #     if self.counter >= (floor(len(self.users)/2)+1):
+    #         msg = f"{self.counter}/{floor(len(self.users)/2)+1}"
+    #         self.broadcast(msg)
+    #         msg = f"usuario {self.banido} foi banido"
+    #         self.addr = self.users[self.banido]
+    #         self.isSender("voce foi banido")
+    #         del self.users[self.banido]
+    #         self.banido = ""
+    #         self.counter = 0
+    #         self.friend_list.clear()
+    #     elif self.counter == 1:
+    #         msg = "votacao iniciada: 1/" + str(floor(len(self.users)/2)+1)
+    #     else:
+    #         msg = f"banimento de {self.banido}: {self.counter}/{str(floor(len(self.users)/2)+1)}"
+    #     self.broadcast(msg)
 
     def isReceptor(self):
         self.time = 10000
@@ -97,43 +97,52 @@ class Rdt:
                     pckg = struct.unpack_from(f'i {tam}s', pckg)
                     seq = pckg[0]
                     payload = pckg[1]
+                    # print("Antes de tudo:    " + str(payload))
 
                     if seq == 0:
                         #if(payload[0] == b'FIM'): # Se recebeu mensagem final do sender, encerra o loop
                         self.endFlag=1
                         payload = payload.decode()
+                        # Quando chega um novo usuário
                         if payload[-5:] == ": SYN":
+                            # Se o nome não tiver disponível retorna 24 e é tratado em user.py para escolher outro nome
                             if payload[0:-5] in self.users.keys():
                                 return 24
+                            # Adiciona um novo usuário
                             self.add_user(payload[0:-5],self.addr)
+
                         elif payload[-6:] == ": list":
                             self.flag = 1
                             self.payload = str([str(k) for k in self.users.keys()])
+
                         elif payload[-5:] == ": bye":
+                            aux = payload[0:-5]
                             del self.users[payload[0:-5]]
-                            self.flag = 2
+                            self.flag = 0
+                            self.payload = f"{aux} saiu do sistema de reservas!"
+                            
+                        
                         elif payload[-8:] == ": --help":
                             self.flag = 1
                             self.payload =   '''Comandos disponíveis:
-                                                Conectar ao aplicativo:               connect as <nome_do_usuario>
-                                                Sair do aplicativo:                   bye
-                                                Exibir lista de usuários 
-                                                conectados no momento:                list
-                                                Reservar uma sala:                    reservar <numero_da_sala> <dia> <horário>
-                                                Cancelar uma reserva:                 cancelar <numero_da_sala> <dia> <horário>
-                                                Checar disponibilidade de uma sala:   check <numero_da_sala> <dia>  
+                                                Conectar ao aplicativo: connect as <nome_do_usuario>
+                                                Sair do aplicativo: bye
+                                                Exibir lista de usuários conectados no momento: list
+                                                Reservar uma sala: reservar <numero_da_sala> <dia> <horário>
+                                                Cancelar uma reserva: cancelar <numero_da_sala> <dia> <horário>
+                                                Checar disponibilidade de uma sala: check <numero_da_sala> <dia>  
                                             '''
-                        elif ": ban" in payload:
-                            string = payload.split(":")
-                            if string[1][1:4] == "ban": 
-                                if (string[1][5:] == self.banido and string[0] not in self.friend_list) or (self.banido == "" and string[1][5:] in self.users.keys()):
-                                    self.banido = string[1][5:]
-                                    self.counter += 1
-                                    self.friend_list.append(string[0])
-                                    self.flag = 3
-                        elif "Você foi banido"in payload:
-                            print(payload)
-                            self.flag = 666
+                        # elif ": ban" in payload:
+                        #     string = payload.split(":")
+                        #     if string[1][1:4] == "ban": 
+                        #         if (string[1][5:] == self.banido and string[0] not in self.friend_list) or (self.banido == "" and string[1][5:] in self.users.keys()):
+                        #             self.banido = string[1][5:]
+                        #             self.counter += 1
+                        #             self.friend_list.append(string[0])
+                        #             self.flag = 3
+                        # elif "Você foi banido"in payload:
+                        #     print(payload)
+                        #     self.flag = 666
                         else:
                             if self.type == "s": 
                                 date_str = str(datetime.now())
@@ -144,6 +153,7 @@ class Rdt:
                                 if nome2[0] in self.friend_list:
                                     payload = nome1[0] + "~[Amigo] " + nome1[1]
                             print(payload)
+                            print("Teste1")
                             self.payload = payload
                         action = "sendAck0"   # Ao receber pacote, se o número de sequência for zero manda ack correspondente
                     else: 
@@ -170,12 +180,17 @@ class Rdt:
                             if payload[0:-5] in self.users.keys():
                                 return 24
                             self.add_user(payload[0:-5],self.addr)
+
                         elif payload[-6:] == ": list":
                             self.flag = 1
                             self.payload = str([str(k) for k in self.users.keys()])
+
                         elif payload[-5:] == ": bye":
+                            aux = payload[0:-5]
                             del self.users[payload[0:-5]]
-                            self.flag = 2
+                            self.flag = 0
+                            self.payload = f"{aux} saiu do sistema de reservas!"
+                        
                         elif payload[-8:] == ": --help":
                             self.flag = 1
                             self.payload =   '''Comandos disponíveis:
@@ -186,17 +201,17 @@ class Rdt:
                                                 Cancelar uma reserva: cancelar <numero_da_sala> <dia> <horário>
                                                 Checar disponibilidade de uma sala: check <numero_da_sala> <dia>  
                                             '''
-                        elif ": ban" in payload:
-                            string = payload.split(":")
-                            if string[1][1:4] == "ban": 
-                                if (string[1][5:] == self.banido and string[0] not in self.friend_list) or (self.banido == "" and string[1][5:] in self.users.keys()):
-                                    self.banido = string[1][5:]
-                                    self.counter += 1
-                                    self.friend_list.append(string[0])
-                                    self.flag = 3
-                        elif "voce foi banido"in payload:
-                            print(payload)
-                            self.flag = 666
+                        # elif ": ban" in payload:
+                        #     string = payload.split(":")
+                        #     if string[1][1:4] == "ban": 
+                        #         if (string[1][5:] == self.banido and string[0] not in self.friend_list) or (self.banido == "" and string[1][5:] in self.users.keys()):
+                        #             self.banido = string[1][5:]
+                        #             self.counter += 1
+                        #             self.friend_list.append(string[0])
+                        #             self.flag = 3
+                        # elif "voce foi banido"in payload:
+                        #     print(payload)
+                        #     self.flag = 666
                         else:
                             if self.type == "s": 
                                 date_str = str(datetime.now())
@@ -207,6 +222,7 @@ class Rdt:
                                 if nome2[0] in self.friend_list:
                                     payload = nome1[0] + "~[Amigo] " + nome1[1]
                             print(payload)
+                            print("Entrou no wait_seq_1")
                             self.payload = payload
                         action = "sendAck1"   # Ao receber pacote, se o número de sequência for zero manda ack correspondente
                     else: 
@@ -350,7 +366,8 @@ class Rdt:
                             self.flag = 0
                         else:
                             if(self.counter > 0):
-                                self.broadcast_ban()
+                                # self.broadcast_ban()
+                                continue
                             self.flag = 0
                     elif self.flag == 666:
                             return
