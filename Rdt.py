@@ -176,7 +176,6 @@ class Rdt:
                             self.flag = 1
                             self.payload = str([str(k) for k in self.users.keys()])
 
-                        # elif payload[-10:] == ": reservar":
                         elif reservar:
                             parts = payload.split()
 
@@ -226,7 +225,6 @@ class Rdt:
 
                                 self.payload = msg
 
-                        # Ou seja, se esá no formato esperado vai entrar
                         elif cancelar:
                             # Checar se o usuário que mandou a solicitação foi o mesmo que consta no dicionário de reservas
                             parts = payload.split()
@@ -248,7 +246,6 @@ class Rdt:
                                 pode_cancelar = self.verificar_condicoes_de_cancelamento(sala, dia_abrev, int(hora), self.user_name)
 
                                 # Se for posso cancelar a reserva e atribuir 2 flags:
-                                                                    # Falta tratar o caso de cancelar uma sala que não tem reservas
                                 if pode_cancelar:
                                     # Esta função só irá atualizar o self.reservas - Dicionário de reservas
 
@@ -370,8 +367,53 @@ class Rdt:
                                         msg = "Comando inválido, porfavor, verificar comandos disponíveis com --help"
                                         self.flag = 1
                                 else:
-                                    msg = "A sala já está reservada."
+                                    msg = f"A sala {sala} está indisponível para reservas na {dias_da_semana_completo[dia_abrev]} às {hora}h. {self.reservas[sala][dia_abrev][int(hora)]} tem posse dessa reserva."
                                     self.flag = 1
+
+                                self.payload = msg
+
+                        elif cancelar:
+                            # Checar se o usuário que mandou a solicitação foi o mesmo que consta no dicionário de reservas
+                            parts = payload.split()
+
+                            self.user_name = parts[0][:-1]
+
+                            if len(parts) >= 5: 
+                                _, sala, dia_abrev, hora = parts[1:5]
+
+                                dias_da_semana_completo = {
+                                    "SEG": "Segunda-Feira",
+                                    "TER": "Terça-Feira",
+                                    "QUA": "Quarta-Feira",
+                                    "QUI": "Quinta-Feira",
+                                    "SEX": "Sexta-Feira"
+                                }
+
+                                # Preciso criar uma grande verificação para saber se quem solicitou cancelar foi o mesmo que possui a reserva
+                                pode_cancelar = self.verificar_condicoes_de_cancelamento(sala, dia_abrev, int(hora), self.user_name)
+
+                                # Se for posso cancelar a reserva e atribuir 2 flags:
+                                if pode_cancelar:
+                                    # Esta função só irá atualizar o self.reservas - Dicionário de reservas
+
+                                    self.cancelar_reserva(sala, dia_abrev, hora)
+
+                                    # 1° - Usuário que solicitou cancelar: Sua reserva foi cancelada
+                                    # Aqui utilizamos self.addr para obter o IP e a porta do remetente da reserva
+                                    ip, porta = self.addr
+
+                                    # Flag para enviar mensagens diferentes
+                                    self.flag_cancelar = True
+                                    
+                                    msg_para_solicitante = f"Você [{ip}:{porta}] cancelou a sua reserva com exito."
+                                    msg = f"{self.user_name} [{ip}:{porta}] cancelou a sua reserva. Portanto, a sala {sala}  disponível para reserva novamente na {dias_da_semana_completo[dia_abrev]} às {hora}h."
+                                    
+                                    msg = msg + msg_para_solicitante
+                                    self.flag = 0
+
+                                else:
+                                    self.flag = 1
+                                    msg = "Você não possui esta reserva, portando não está apto a cancelar."
 
                                 self.payload = msg
 
