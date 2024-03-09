@@ -10,6 +10,7 @@ import re
 
 
 class Rdt:
+    # Inicio Duda
     def __init__(self, user_name, type = 'u'):
         self.name = user_name
         self.stateR = "waitSeq_0" # Variável de estado - Começa com o estado inicial "waitCall_0"
@@ -70,7 +71,11 @@ class Rdt:
 
     def add_user(self, name, addr):
         self.users.update({name : addr})
-        self.payload = f"{name} está avaliando reservas!"       
+        self.payload = f"{name} está avaliando reservas!"  
+
+    # Fim Duda
+
+    # Inicio Gabriel     
     
     def broadcast(self, msg):
         for addr in self.users.values():
@@ -124,6 +129,10 @@ class Rdt:
             return True
         else:
             return False
+    
+    # Fim Gabriel
+        
+    # Inicio Antonio
 
     def isReceptor(self):
         self.time = 10000
@@ -255,6 +264,10 @@ class Rdt:
 
                                 self.payload = msg
 
+                        # Fim Antonio
+                                
+                        # Inicio Heitor
+
                         elif check:
                             # check <numero_da_sala> <dia>
                             # Checar se o usuário que mandou a solicitação foi o mesmo que consta no dicionário de reservas
@@ -272,7 +285,6 @@ class Rdt:
                             self.payload = self.mensagem_help
 
                         else:
-                            # Tirar isso depois
                             if self.type == "s": 
                                 date_str = str(datetime.now())
                                 payload = f"{self.addr[0]}:{self.addr[1]}/~{payload}" + " " + date_str
@@ -288,7 +300,11 @@ class Rdt:
                     else: 
                         action = "sendAck1" # Se o pacote não é o correto, manda o ack de sequência 1, ao invés disso
                         self.endFlag=1
+                    
+                    # Fim Heitor
                 
+            # Comentar sobre o estado de espra que é uma repetição do  isReceptor seq=0
+            # Duda
             elif self.stateR == "waitSeq_1": # Estado de esperar pelo pacote 1
                 try:
                     pckg, self.addr = self.rdt_socket.recvfrom(self.bufferSize) # Recebe o pacote se algum chegar
@@ -433,6 +449,7 @@ class Rdt:
                         action = "sendAck0" # Se seq pacote nao for o esperado, manda o ack de sequencia 0, e deve continuar no mesmo estado 
                         self.endFlag=1
 
+            # Inicio Gabriel
             if action == "sendAck0":
                 self.sendAck(0)           # Manda o ack de sequência 0
                 if self.endFlag: 
@@ -446,6 +463,9 @@ class Rdt:
                     self.stateR = "waitSeq_0"
                     break
                 self.stateR = "waitSeq_0" # Muda o estado para waitSeq_0
+            # Fim Gabriel
+
+    # Inicio Karol
 
     def isSender(self, mensagem):
         self.time = 1
@@ -527,6 +547,10 @@ class Rdt:
                 self.sendPkt(data, 1)
                 self.stateS = "waitAck_1"     
 
+    # Fim Karol
+
+    # Inicio Miriam
+                        
     def waiting(self):
         while True:
             # Use select para monitorar o socket e a entrada do terminal
@@ -572,4 +596,5 @@ class Rdt:
                     self.isSender(input_text)
 
                     if input_text == "bye": return
-                        
+    
+    # Fim Miriam
