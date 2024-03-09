@@ -27,7 +27,6 @@ class Rdt:
         self.rdt_socket.settimeout(self.time)
         self.fimPck = 0 
         self.flag = 0
-        self.friend_list = []
         HOST = "127.0.0.1"  # Endereço IP do servidor
         HOST_PORT = 5000    # Porta do servidor
         self.dest = (HOST,HOST_PORT)
@@ -42,6 +41,7 @@ class Rdt:
         # self.reservas_aux = {sala: {dia: {hora: None for hora in range(8, 18)} for dia in ['SEG', 'TER', 'QUA', 'QUI', 'SEX']} for sala in ['E101', 'E102', 'E103', 'E104', 'E105']}
 
         self.flag_reservar = False # Utilizado para enviar mensagens diferentes aos conectados no servidor.
+        self.flag_cancelar = False
         self.user_name = ''
         self.mensagem_help = '''Comandos disponíveis:
 * Conectar ao aplicativo: connect as <nome_do_usuario>
@@ -91,6 +91,12 @@ class Rdt:
     # Não precisa chamar a função recursivamente
     # Apenas verifique se o valor no dicionário de reservas é None
         return self.reservas[sala][dia][int(hora)] is None
+    
+    def verificar_condicoes_de_cancelamento(self, sala, dia, hora, quem_solicitou):
+        if self.reservas[sala][dia][int(hora)] == quem_solicitou:
+            return True
+        else:
+            return False
 
 
     def realizar_reserva(self, user_name, sala, dia, hora):
@@ -99,14 +105,12 @@ class Rdt:
             return True
         return False
 
-    def cancelar_reserva(self, user_name, sala, dia, hora):
-        if self.reservas[sala][dia][hora] == user_name:  # Verifica se quem está cancelando é quem reservou
-            self.reservas[sala][dia][hora] = None
-            # msg = f"Você [{user_name}] cancelou a reserva da sala {sala} na {dia} {hora}h"
-            # self.isSender(msg)  # Enviar confirmação de cancelamento para o usuário
-            # self.broadcast(f"{user_name} cancelou a reserva da sala {sala} na {dia} {hora}h")  # Notificar outros usuários
-            return True
-        return False
+    def cancelar_reserva(self, sala, dia, hora):
+        # print(self.reservas[sala][dia][int(hora)])
+        self.reservas[sala][dia][int(hora)] = None
+        # print(self.reservas[sala][dia][int(hora)])
+        # print(self.reservas)
+
     
     # Função para pegar o formato do reservar
     def _reservar(self, string):
@@ -117,7 +121,7 @@ class Rdt:
             return False
         
     def _cancelar(self, string):
-        padrao = r"^\w+:\scancelar"
+        padrao = r'\w+:\scancelar\s(E101|E102|E103|E104|E105)\s(SEG|TER|QUA|QUI|SEX)\s(1[0-8]|[89])$'
         if re.match(padrao, string):
             return True
         else:
@@ -152,23 +156,13 @@ class Rdt:
                     # print("\n")
 
                     if seq == 0:
-                        #if(payload[0] == b'FIM'): # Se recebeu mensagem final do sender, encerra o loop
                         self.endFlag=1
                         payload = payload.decode()
 
                         # Funções para verificar o formato de
                         reservar = self._reservar(payload)
-                        # print("\n")
-                        # print(reservar)
-                        # print("\n")
                         cancelar = self._cancelar(payload)
                         check = self._check(payload)
-
-                        # print("Depois de decodificar: " + str(payload))
-                        # print("Primeiro print: " + str(payload[:]))
-                        # print("Segundo print: " + str(payload[-4:]))
-                        # print("Terceiro print: " + str(payload[-4:10]))
-                        # print("Quarto print: " + str(payload[7:])) # : reservar
 
                         # Quando chega um novo usuário
                         if payload[-5:] == ": SYN":
@@ -187,10 +181,7 @@ class Rdt:
                             parts = payload.split()
 
                             self.user_name = parts[0][:-1]
-                            
-
-                            # Checar se vai ter disponibilidade de reserva!
-
+                        
                             # Verifique se tem a quantidade correta de partes para o comando 'reservar'
                             if len(parts) >= 5:  # Deve ser algo como ": reservar sala dia hora"
                                 _, sala, dia_abrev, hora = parts[1:5]
@@ -204,34 +195,13 @@ class Rdt:
                                     "SEX": "Sexta"
                                 }
 
-                                print("self.reservas 1: " + str(self.reservas[sala][dia_abrev][int(hora)]))
+                                # print("self.reservas 1: " + str(self.reservas[sala][dia_abrev][int(hora)]))
 
                                 # Agora quero verificar se há disponibilidade de sala
                                 disponivel = self.verificar_disponibilidade(sala, dia_abrev, int(hora))
 
-                                # str_check = ""
-
-                                # for i in parts[1:]:
-                                #     str_check = str_check + i + " "
-
-                                # str_check = str_check[:-1]
-
-                                # print("\n")
-                                # print(str_check)
-                                # print("\n")
-
                                 # Verifica o formato da mensagem - Retorna True - Já muda o status de self.reservas[...][...][...]
                                 sucesso = self.realizar_reserva(self.user_name, sala, dia_abrev, int(hora))
-                                
-                                # print(self.reservas)
-                                # print(sala)
-                                # print(dia_abrev)
-                                # print(int(hora))
-                                # print("self.reservas 2: " + str(self.reservas[sala][dia_abrev][int(hora)]))
-
-                                # print("\n")
-                                # print("disponivel: " + str(disponivel))
-                                # print("\n")
 
                                 if disponivel:
                                     if sucesso:
@@ -246,15 +216,62 @@ class Rdt:
                                         
                                         msg = msg + msg_para_solicitante
                                         self.flag = 0
-                                    # else:
-                                    #     msg = "A sala já está reservada. 1"
-                                    #     self.flag = 1
+
+                                    else:
+                                        msg = "Comando inválido, porfavor, verificar comandos disponíveis com --help"
+                                        self.flag = 1
                                 else:
-                                    msg = "A sala já está reservada."
+                                    msg = f"A sala {sala} está indisponível para reservas na {dias_da_semana_completo[dia_abrev]} às {hora}h. {self.reservas[sala][dia_abrev][int(hora)]} tem posse dessa reserva."
                                     self.flag = 1
 
                                 self.payload = msg
 
+                        # Ou seja, se esá no formato esperado vai entrar
+                        elif cancelar:
+                            # Checar se o usuário que mandou a solicitação foi o mesmo que consta no dicionário de reservas
+                            parts = payload.split()
+
+                            self.user_name = parts[0][:-1]
+
+                            if len(parts) >= 5: 
+                                _, sala, dia_abrev, hora = parts[1:5]
+
+                                dias_da_semana_completo = {
+                                    "SEG": "Segunda-Feira",
+                                    "TER": "Terça-Feira",
+                                    "QUA": "Quarta-Feira",
+                                    "QUI": "Quinta-Feira",
+                                    "SEX": "Sexta-Feira"
+                                }
+
+                                # Preciso criar uma grande verificação para saber se quem solicitou cancelar foi o mesmo que possui a reserva
+                                pode_cancelar = self.verificar_condicoes_de_cancelamento(sala, dia_abrev, int(hora), self.user_name)
+
+                                # Se for posso cancelar a reserva e atribuir 2 flags:
+                                                                    # Falta tratar o caso de cancelar uma sala que não tem reservas
+                                if pode_cancelar:
+                                    # Esta função só irá atualizar o self.reservas - Dicionário de reservas
+
+                                    self.cancelar_reserva(sala, dia_abrev, hora)
+
+                                    # 1° - Usuário que solicitou cancelar: Sua reserva foi cancelada
+                                    # Aqui utilizamos self.addr para obter o IP e a porta do remetente da reserva
+                                    ip, porta = self.addr
+
+                                    # Flag para enviar mensagens diferentes
+                                    self.flag_cancelar = True
+                                    
+                                    msg_para_solicitante = f"Você [{ip}:{porta}] cancelou a sua reserva com exito."
+                                    msg = f"{self.user_name} [{ip}:{porta}] cancelou a sua reserva. Portanto, a sala {sala}  disponível para reserva novamente na {dias_da_semana_completo[dia_abrev]} às {hora}h."
+                                    
+                                    msg = msg + msg_para_solicitante
+                                    self.flag = 0
+
+                                else:
+                                    self.flag = 1
+                                    msg = "Você não possui esta reserva, portando não está apto a cancelar."
+
+                                self.payload = msg
 
                         elif payload[-5:] == ": bye":
                             aux = payload[0:-5]
@@ -275,11 +292,11 @@ class Rdt:
                             if "~" in payload and self.type == 'u': 
                                 nome1 = payload.split("~")
                                 nome2 = nome1[1].split(":")
-                                if nome2[0] in self.friend_list:
-                                    payload = nome1[0] + "~[Amigo] " + nome1[1]
+
                             print(payload)
                             # print("Teste1")
                             self.payload = payload
+
                         action = "sendAck0"   # Ao receber pacote, se o número de sequência for zero manda ack correspondente
                     
                     else: 
@@ -312,10 +329,8 @@ class Rdt:
                         elif reservar:
                             parts = payload.split()
 
-                            user_name = parts[0][:-1]
-
-                            # Checar se vai ter disponibilidade de reserva!
-
+                            self.user_name = parts[0][:-1]
+                        
                             # Verifique se tem a quantidade correta de partes para o comando 'reservar'
                             if len(parts) >= 5:  # Deve ser algo como ": reservar sala dia hora"
                                 _, sala, dia_abrev, hora = parts[1:5]
@@ -329,15 +344,33 @@ class Rdt:
                                     "SEX": "Sexta"
                                 }
 
-                                sucesso = self.realizar_reserva(self.name, sala, dia_abrev, int(hora))
+                                # print("self.reservas 1: " + str(self.reservas[sala][dia_abrev][int(hora)]))
 
-                                if sucesso:
-                                    # Aqui utilizamos self.addr para obter o IP e a porta do remetente da reserva
-                                    ip, porta = self.addr
-                                    msg = f"{user_name} [{ip}:{porta}] reservou a sala {sala} na {dias_da_semana_completo[dia_abrev]} às {hora}h."
-                                    self.flag = 0
+                                # Agora quero verificar se há disponibilidade de sala
+                                disponivel = self.verificar_disponibilidade(sala, dia_abrev, int(hora))
+
+                                # Verifica o formato da mensagem - Retorna True - Já muda o status de self.reservas[...][...][...]
+                                sucesso = self.realizar_reserva(self.user_name, sala, dia_abrev, int(hora))
+
+                                if disponivel:
+                                    if sucesso:
+                                        # Aqui utilizamos self.addr para obter o IP e a porta do remetente da reserva
+                                        ip, porta = self.addr
+
+                                        # Flag para enviar mensagens diferentes
+                                        self.flag_reservar = True
+                                        
+                                        msg_para_solicitante = f"Você [{ip}:{porta}] reservou a sala {sala}."
+                                        msg = f"{self.user_name} [{ip}:{porta}] reservou a sala {sala} na {dias_da_semana_completo[dia_abrev]} às {hora}h. "
+                                        
+                                        msg = msg + msg_para_solicitante
+                                        self.flag = 0
+
+                                    else:
+                                        msg = "Comando inválido, porfavor, verificar comandos disponíveis com --help"
+                                        self.flag = 1
                                 else:
-                                    msg = "Não foi possível realizar a reserva. Verifique os dados e tente novamente."
+                                    msg = "A sala já está reservada."
                                     self.flag = 1
 
                                 self.payload = msg
@@ -359,11 +392,11 @@ class Rdt:
                             if "~" in payload and self.type == 'u': 
                                 nome1 = payload.split("~")
                                 nome2 = nome1[1].split(":")
-                                if nome2[0] in self.friend_list:
-                                    payload = nome1[0] + "~[Amigo] " + nome1[1]
+
                             print(payload)
                             print("Entrou no wait_seq_1")
                             self.payload = payload
+
                         action = "sendAck1"   # Ao receber pacote, se o número de sequência for zero manda ack correspondente
                     else: 
                         action = "sendAck0" # Se seq pacote nao for o esperado, manda o ack de sequencia 0, e deve continuar no mesmo estado 
@@ -475,17 +508,18 @@ class Rdt:
                     self.isReceptor()
                     if self.type == "s":
                         if self.flag == 0 and self.flag_reservar:
-                            # print("Print payload: " + self.payload)
-                            # print("Print payload[-43:]: " + self.payload[-43:])
-                            # # self.payload =  
-                            # print("Print payload[:-43]: " + self.payload[:-43])
+                            # Spam de reserva ou de frases que precisam ser diferentes para os usuários.
 
                             self.isSender(self.payload[-44:]) # Esse formato sempre será o mesmo por isso posso fazer dessa forma
                             self.broadcast_dif(self.payload[:-44], self.addr)
 
-                            # self.broadcast_dif(self.payload[:-44], self.user_name)
-
                             self.flag_reservar = False
+
+                        elif self.flag == 0 and self.flag_cancelar:
+                            self.isSender(self.payload[-56:])
+                            self.broadcast_dif(self.payload[:-56], self.addr)
+
+                            self.flag_cancelar = False
 
                         elif self.flag == 0 and self.flag_reservar == False:
                             self.broadcast(self.payload)
@@ -504,14 +538,7 @@ class Rdt:
                     # Se o usuário digitou algo no terminal, encerre o servidor
                     input_text = sys.stdin.readline()
                     input_text = input_text.strip()
-                    if input_text == "mylist":
-                        print(self.friend_list)
-                    elif input_text[0:11] == "addtomylist":
-                        if (input_text[12:] not in self.friend_list):
-                            self.friend_list.append(input_text[12:])
-                    elif input_text[0:13] == "rmvfrommylist":
-                        if (input_text[14:] in self.friend_list):
-                            self.friend_list.remove(input_text[14:])
-                    else: self.isSender(input_text)
+                    self.isSender(input_text)
+
                     if input_text == "bye": return
                         
