@@ -18,8 +18,6 @@ class Rdt:
         self.file_bytes = 0  
         self.time = 1
         self.type = type
-        # self.counter = 0
-        # self.banido = ""
         self.payload = ""
         self.users = {}
         self.addr = (0,0)
@@ -38,7 +36,6 @@ class Rdt:
             self.bufferSize = 1024
 
         self.reservas = {sala: {dia: {hora: None for hora in range(8, 18)} for dia in ['SEG', 'TER', 'QUA', 'QUI', 'SEX']} for sala in ['E101', 'E102', 'E103', 'E104', 'E105']}
-        # self.reservas_aux = {sala: {dia: {hora: None for hora in range(8, 18)} for dia in ['SEG', 'TER', 'QUA', 'QUI', 'SEX']} for sala in ['E101', 'E102', 'E103', 'E104', 'E105']}
 
         self.flag_reservar = False # Utilizado para enviar mensagens diferentes aos conectados no servidor.
         self.flag_cancelar = False
@@ -50,7 +47,7 @@ class Rdt:
 * Reservar uma sala: reservar <numero_da_sala> <dia> <horário>
 * Cancelar uma reserva: cancelar <numero_da_sala> <dia> <horário>
 * Checar disponibilidade de uma sala: check <numero_da_sala> <dia>  
-                                            '''
+'''
 
     def sendPkt(self, payload, seqNum): # Converte os dados em uma representação de string e codifica em bytes
         tam = len(payload)
@@ -63,8 +60,7 @@ class Rdt:
 
     def sendAck(self,ack):
         data = struct.pack('i', ack)
-        #self.rdt_socket.sendto(data, self.addr)
-        if randint(1,9):     #taxa de perda de 10%
+        if randint(1,9):     # Taxa de perda de 10%
             if self.type == "s":
                 self.rdt_socket.sendto(data, self.addr) # Envia os dados para o destino
             else:
@@ -98,7 +94,6 @@ class Rdt:
         else:
             return False
 
-
     def realizar_reserva(self, user_name, sala, dia, hora):
         if self.verificar_disponibilidade(sala, dia, hora):
             self.reservas[sala][dia][hora] = user_name
@@ -106,11 +101,7 @@ class Rdt:
         return False
 
     def cancelar_reserva(self, sala, dia, hora):
-        # print(self.reservas[sala][dia][int(hora)])
         self.reservas[sala][dia][int(hora)] = None
-        # print(self.reservas[sala][dia][int(hora)])
-        # print(self.reservas)
-
     
     # Função para pegar o formato do reservar
     def _reservar(self, string):
@@ -149,12 +140,6 @@ class Rdt:
                     seq = pckg[0]
                     payload = pckg[1]
 
-                    # print("Tamanho do que foi digitado: " + str(tam)) # Tamanho do pacote - 17
-                    # print("Pacote, formato (0, b'Quem_mandou: digitado): " + str(pckg)) # (0, b'Antonio: reservar')
-                    # print("seq - tipo uma flag: " + str(seq)) # 0
-                    # print("A mensagem em si, contando por quem foi enviada: " + str(payload)) # b'Antonio: reservar'
-                    # print("\n")
-
                     if seq == 0:
                         self.endFlag=1
                         payload = payload.decode()
@@ -168,7 +153,7 @@ class Rdt:
                         if payload[-5:] == ": SYN":
                             # Se o nome não tiver disponível retorna 24 e é tratado em user.py para escolher outro nome
                             if payload[0:-5] in self.users.keys():
-                                return 24
+                                return 2000
                             # Adiciona um novo usuário
                             self.add_user(payload[0:-5],self.addr)
 
@@ -275,8 +260,7 @@ class Rdt:
                             del self.users[payload[0:-5]]
                             self.flag = 0
                             self.payload = f"{aux} saiu do sistema de reservas!"
-                            
-                        
+                                                  
                         elif payload[-8:] == ": --help":
                             self.flag = 1
                             self.payload = self.mensagem_help
@@ -291,7 +275,6 @@ class Rdt:
                                 nome2 = nome1[1].split(":")
 
                             print(payload)
-                            # print("Teste1")
                             self.payload = payload
 
                         action = "sendAck0"   # Ao receber pacote, se o número de sequência for zero manda ack correspondente
@@ -316,7 +299,7 @@ class Rdt:
                         payload = payload.decode()
                         if payload[-5:] == ": SYN":
                             if payload[0:-5] in self.users.keys():
-                                return 24
+                                return 2000
                             self.add_user(payload[0:-5],self.addr)
 
                         elif payload[-6:] == ": list":
