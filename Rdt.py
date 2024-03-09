@@ -119,7 +119,7 @@ class Rdt:
             return False
         
     def _check(self, string):
-        padrao = r"^\w+:\scheck"
+        padrao = r'\w+:\scheck\s(E101|E102|E103|E104|E105)\s(SEG|TER|QUA|QUI|SEX)$'
         if re.match(padrao, string):
             return True
         else:
@@ -147,7 +147,7 @@ class Rdt:
                         # Funções para verificar o formato de
                         reservar = self._reservar(payload)
                         cancelar = self._cancelar(payload)
-                        check = self._check(payload)
+                        check = self._check(payload) # True or False
 
                         # Quando chega um novo usuário
                         if payload[-5:] == ": SYN":
@@ -255,6 +255,12 @@ class Rdt:
 
                                 self.payload = msg
 
+                        elif check:
+                            # check <numero_da_sala> <dia>
+                            # Checar se o usuário que mandou a solicitação foi o mesmo que consta no dicionário de reservas
+                            parts = payload.split()
+                            pass
+                        
                         elif payload[-5:] == ": bye":
                             aux = payload[0:-5]
                             del self.users[payload[0:-5]]

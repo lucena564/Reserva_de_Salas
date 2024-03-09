@@ -14,4 +14,6 @@ def verificar_disponibilidade(sala, dia, hora, reservas = reservas):
     return reservas[sala][dia][int(hora)] is None
 
 
-print(verificar_disponibilidade("E101", "SEG", 12))
+# print(verificar_disponibilidade("E101", "SEG", 12))
+
+print(reservas)
