@@ -15,8 +15,6 @@ Para rodar o projeto, siga o passo a passo:
 
 3. Abra outro terminal da mesma forma, atribuído ao `server.py`, e rode o programa `user.py`, fazendo o mesmo processo anterior.
 
-Obs: muitas das funcionalidades ainda precisam ser implementadas.
-
 Grupo: Antônio Lucena, Eduarda, Gabriel Wamat, Heitor Machado, Karol Rocha, Miriam, Roberto.
 
 **IMPORTANTE:** O projeto precisa ser executado em ambiente Linux ou MacOS.
