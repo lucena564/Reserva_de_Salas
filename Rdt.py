@@ -10,6 +10,7 @@ import re
 
 
 class Rdt:
+    # Inicio Duda
     def __init__(self, user_name, type = 'u'):
         self.name = user_name
         self.stateR = "waitSeq_0" # Variável de estado - Começa com o estado inicial "waitCall_0"
@@ -18,8 +19,6 @@ class Rdt:
         self.file_bytes = 0  
         self.time = 1
         self.type = type
-        # self.counter = 0
-        # self.banido = ""
         self.payload = ""
         self.users = {}
         self.addr = (0,0)
@@ -38,7 +37,6 @@ class Rdt:
             self.bufferSize = 1024
 
         self.reservas = {sala: {dia: {hora: None for hora in range(8, 18)} for dia in ['SEG', 'TER', 'QUA', 'QUI', 'SEX']} for sala in ['E101', 'E102', 'E103', 'E104', 'E105']}
-        # self.reservas_aux = {sala: {dia: {hora: None for hora in range(8, 18)} for dia in ['SEG', 'TER', 'QUA', 'QUI', 'SEX']} for sala in ['E101', 'E102', 'E103', 'E104', 'E105']}
 
         self.flag_reservar = False # Utilizado para enviar mensagens diferentes aos conectados no servidor.
         self.flag_cancelar = False
@@ -50,7 +48,7 @@ class Rdt:
 * Reservar uma sala: reservar <numero_da_sala> <dia> <horário>
 * Cancelar uma reserva: cancelar <numero_da_sala> <dia> <horário>
 * Checar disponibilidade de uma sala: check <numero_da_sala> <dia>  
-                                            '''
+'''
 
     def sendPkt(self, payload, seqNum): # Converte os dados em uma representação de string e codifica em bytes
         tam = len(payload)
@@ -63,8 +61,7 @@ class Rdt:
 
     def sendAck(self,ack):
         data = struct.pack('i', ack)
-        #self.rdt_socket.sendto(data, self.addr)
-        if randint(1,9):     #taxa de perda de 10%
+        if randint(1,9):     # Taxa de perda de 10%
             if self.type == "s":
                 self.rdt_socket.sendto(data, self.addr) # Envia os dados para o destino
             else:
@@ -74,7 +71,11 @@ class Rdt:
 
     def add_user(self, name, addr):
         self.users.update({name : addr})
-        self.payload = f"{name} está avaliando reservas!"       
+        self.payload = f"{name} está avaliando reservas!"  
+
+    # Fim Duda
+
+    # Inicio Gabriel     
     
     def broadcast(self, msg):
         for addr in self.users.values():
@@ -98,7 +99,6 @@ class Rdt:
         else:
             return False
 
-
     def realizar_reserva(self, user_name, sala, dia, hora):
         if self.verificar_disponibilidade(sala, dia, hora):
             self.reservas[sala][dia][hora] = user_name
@@ -106,11 +106,18 @@ class Rdt:
         return False
 
     def cancelar_reserva(self, sala, dia, hora):
-        # print(self.reservas[sala][dia][int(hora)])
         self.reservas[sala][dia][int(hora)] = None
-        # print(self.reservas[sala][dia][int(hora)])
-        # print(self.reservas)
 
+    def checkAvailableRooms(self, sala, dia):
+        available_rooms = ""
+
+        available_rooms = f"{sala} -> {dia} -> "
+
+        for hora in range(8, 18):
+                if self.reservas[sala][dia][hora] is None:
+                    available_rooms = available_rooms + f" {hora}"
+
+        return available_rooms
     
     # Função para pegar o formato do reservar
     def _reservar(self, string):
@@ -128,11 +135,21 @@ class Rdt:
             return False
         
     def _check(self, string):
-        padrao = r"^\w+:\scheck"
+        padrao = r'\w+:\scheck\s(E101|E102|E103|E104|E105)\s(SEG|TER|QUA|QUI|SEX)$'
+        padrao2 = r'\w+:\scheck\s(E101|E102|E103|E104|E105)\s(SEG|TER|QUA|QUI|SEX)\s(1[0-8]|[89])$'
+
         if re.match(padrao, string):
             return True
+        
+        elif re.match(padrao2, string):
+            return True
+        
         else:
             return False
+    
+    # Fim Gabriel
+        
+    # Inicio Antonio
 
     def isReceptor(self):
         self.time = 10000
@@ -149,12 +166,6 @@ class Rdt:
                     seq = pckg[0]
                     payload = pckg[1]
 
-                    # print("Tamanho do que foi digitado: " + str(tam)) # Tamanho do pacote - 17
-                    # print("Pacote, formato (0, b'Quem_mandou: digitado): " + str(pckg)) # (0, b'Antonio: reservar')
-                    # print("seq - tipo uma flag: " + str(seq)) # 0
-                    # print("A mensagem em si, contando por quem foi enviada: " + str(payload)) # b'Antonio: reservar'
-                    # print("\n")
-
                     if seq == 0:
                         self.endFlag=1
                         payload = payload.decode()
@@ -162,13 +173,13 @@ class Rdt:
                         # Funções para verificar o formato de
                         reservar = self._reservar(payload)
                         cancelar = self._cancelar(payload)
-                        check = self._check(payload)
+                        check = self._check(payload) # True or False
 
                         # Quando chega um novo usuário
                         if payload[-5:] == ": SYN":
                             # Se o nome não tiver disponível retorna 24 e é tratado em user.py para escolher outro nome
                             if payload[0:-5] in self.users.keys():
-                                return 24
+                                return 2000
                             # Adiciona um novo usuário
                             self.add_user(payload[0:-5],self.addr)
 
@@ -194,8 +205,6 @@ class Rdt:
                                     "SEX": "Sexta"
                                 }
 
-                                # print("self.reservas 1: " + str(self.reservas[sala][dia_abrev][int(hora)]))
-
                                 # Agora quero verificar se há disponibilidade de sala
                                 disponivel = self.verificar_disponibilidade(sala, dia_abrev, int(hora))
 
@@ -270,19 +279,31 @@ class Rdt:
 
                                 self.payload = msg
 
+                        # Fim Antonio
+                                
+                        # Inicio Heitor
+
+                        elif check:
+                            # check <numero_da_sala> <dia>
+                            parts = payload.split()
+                            _, sala, dia_abrev = parts[1:4]
+
+                            msg = self.checkAvailableRooms(sala, dia_abrev)
+
+                            self.payload = msg
+                            self.flag = 1
+                                      
                         elif payload[-5:] == ": bye":
                             aux = payload[0:-5]
                             del self.users[payload[0:-5]]
                             self.flag = 0
                             self.payload = f"{aux} saiu do sistema de reservas!"
-                            
-                        
+                                                  
                         elif payload[-8:] == ": --help":
                             self.flag = 1
                             self.payload = self.mensagem_help
 
                         else:
-                            # Tirar isso depois
                             if self.type == "s": 
                                 date_str = str(datetime.now())
                                 payload = f"{self.addr[0]}:{self.addr[1]}/~{payload}" + " " + date_str
@@ -291,15 +312,19 @@ class Rdt:
                                 nome2 = nome1[1].split(":")
 
                             print(payload)
-                            # print("Teste1")
-                            self.payload = payload
+                            self.payload = "Comando não encontrado, verifique todos os comandos disponíveis utilizando o comando --help"
+                            self.flag = 1
 
                         action = "sendAck0"   # Ao receber pacote, se o número de sequência for zero manda ack correspondente
                     
                     else: 
                         action = "sendAck1" # Se o pacote não é o correto, manda o ack de sequência 1, ao invés disso
                         self.endFlag=1
+                    
+                    # Fim Heitor
                 
+            # Comentar sobre o estado de espra que é uma repetição do  isReceptor seq=0
+            # Duda
             elif self.stateR == "waitSeq_1": # Estado de esperar pelo pacote 1
                 try:
                     pckg, self.addr = self.rdt_socket.recvfrom(self.bufferSize) # Recebe o pacote se algum chegar
@@ -316,7 +341,7 @@ class Rdt:
                         payload = payload.decode()
                         if payload[-5:] == ": SYN":
                             if payload[0:-5] in self.users.keys():
-                                return 24
+                                return 2000
                             self.add_user(payload[0:-5],self.addr)
 
                         elif payload[-6:] == ": list":
@@ -417,6 +442,16 @@ class Rdt:
 
                                 self.payload = msg
 
+                        elif check:
+                            # check <numero_da_sala> <dia>
+                            parts = payload.split()
+                            _, sala, dia_abrev = parts[1:4]
+
+                            msg = self.checkAvailableRooms(sala, dia_abrev)
+
+                            self.payload = msg
+                            self.flag = 1
+
                         elif payload[-5:] == ": bye":
                             aux = payload[0:-5]
                             del self.users[payload[0:-5]]
@@ -435,152 +470,168 @@ class Rdt:
                                 nome1 = payload.split("~")
                                 nome2 = nome1[1].split(":")
 
+                            # print direcionado ao servidor, para ter controle que o comando não foi encontrado
                             print(payload)
-                            print("Entrou no wait_seq_1")
-                            self.payload = payload
-
+                            self.payload = "Comando não encontrado, verifique todos os comandos disponíveis utilizando o comando --help"
+                            self.flag = 1
+                            
                         action = "sendAck1"   # Ao receber pacote, se o número de sequência for zero manda ack correspondente
                     else: 
                         action = "sendAck0" # Se seq pacote nao for o esperado, manda o ack de sequencia 0, e deve continuar no mesmo estado 
                         self.endFlag=1
 
+            # Inicio Gabriel
             if action == "sendAck0":
                 self.sendAck(0)           # Manda o ack de sequência 0
                 if self.endFlag: 
                     self.stateR = "waitSeq_0"
                     break
-                self.stateR = "waitSeq_1"  # Muda de estado para waitSeq_1
+                self.stateR = "waitSeq_1" # Muda de estado para waitSeq_1
                 
             elif action == "sendAck1":
-                self.sendAck(1)          # Manda ack de sequencia 1
+                self.sendAck(1)           # Manda ack de sequencia 1
                 if self.endFlag: 
                     self.stateR = "waitSeq_0"
                     break
                 self.stateR = "waitSeq_0" # Muda o estado para waitSeq_0
+            # Fim Gabriel
 
-    def isSender(self, mensagem):
+    # Inicio Karol
+
+    def isSender(self, message_content):
         self.time = 1
-        self.rdt_socket.settimeout(self.time)
-        if self.type != "s":
-            mensagem = "" + mensagem + ""
-            mensagem = f"{self.name}: {mensagem}"
-                                
-        while(True): #Loop principal da máquina de estados finitos do remetente
+        self.rdt_socket.settimeout(self.time)  # Define o timeout do socket para 1 segundo
+        if self.type != "s":  # Se o tipo não for servidor, formata a mensagem para incluir o nome do remetente
+            message_content = f"{self.name}: {message_content}"
+                                    
+        while True:  # Loop principal da máquina de estados finitos do remetente
             if self.stateS == "waitCall_0":
-            # Estado de esperar para enviar o pacote de sequência 0
-                action = "sendPktSeq_0" # Manda o pacote de sequência 0
+                # Estado: Aguardando para enviar o pacote de sequência 0
+                next_action = "sendPktSeq_0"  # Ação: Enviar o pacote de sequência 0
 
             elif self.stateS == "waitAck_0":
-            # Estado de esperar recebimento do Ack 0 após o pacote 0 ter sido enviado
+                # Estado: Aguardando o Ack para o pacote de sequência 0 enviado
                 try:
-                    ack_pck = self.rdt_socket.recv(self.bufferSize) # Se chegar um pacote Ack, recebe o Ack
+                    ack_packet = self.rdt_socket.recv(self.bufferSize)  # Tenta receber o Ack
                 except timeout:
-                    action = "ReSendPktSeq_0" # Se ocorrer um timeout, manda novamente o pacote de sequência 0
+                    next_action = "ReSendPktSeq_0"  # Em caso de timeout, a ação é reenviar o pacote de sequência 0
                 else:
-                    ack_pck = struct.unpack_from('i', ack_pck) # Decodifica o pacote ACK
-                    ack = ack_pck[0]             # Obtém o campo ACK do pacote
-                    if ack == 0: 
-                        action = "stopTimer_0" # Se o ACK for 0, reseta o timer
-                        if self.fimPck: 
-                            self.stateS = "waitCall_0"
-                            break
-                    else: 
-                        action = "ReSendPktSeq_0" # Se o ack for tiver a sequência errada, manda novamente o pacote 0
-
-            elif self.stateS == "waitCall_1":
-            # Estado de esperar para enviar o pacote de sequência 1
-                action = "sendPktSeq_1" # Manda o pacote de sequência 1
-
-            elif self.stateS == "waitAck_1":
-            # Estado de esperar recebimento do Ack 1 após o pacote 1 ter sido enviado
-                try:
-                    ack_pck = self.rdt_socket.recv(self.bufferSize) # Se chegar um pacote Ack, recebe o Ack
-                except timeout:
-                    action = "ReSendPktSeq_1" # Se ocorrer um timeout, manda novamente o pacote de sequência 1
-                else:
-                    ack_pck = struct.unpack_from('i', ack_pck) # Decodifica o pacote ACK
-                    ack = ack_pck[0]             # Obtém o campo ACK do pacote
-                    if ack == 1:
-                        action = "stopTimer_1" # Se o ACK for 1, reseta o timer
-                        if self.fimPck: # Envio encerrou e receiver recebeu tudo
+                    ack_packet = struct.unpack_from('i', ack_packet)  # Decodifica o pacote Ack
+                    ack_value = ack_packet[0]  # Obtém o valor Ack do pacote
+                    if ack_value == 0:
+                        next_action = "stopTimer_0"  # Se o Ack for 0, a ação é parar o timer
+                        if self.fimPck:
                             self.stateS = "waitCall_0"
                             break
                     else:
-                        action = "ReSendPktSeq_1" # Se o ack for tiver a sequência errada, manda novamente o pacote 1
+                        next_action = "ReSendPktSeq_0"  # Se o Ack não for 0, reenvia o pacote de sequência 0
 
-            if action == "sendPktSeq_0":
-                data = mensagem.encode()  # Lê 1024 bytes do arquivo
+            elif self.stateS == "waitCall_1":
+                # Estado: Aguardando para enviar o pacote de sequência 1
+                next_action = "sendPktSeq_1"  # Ação: Enviar o pacote de sequência 1
+
+            elif self.stateS == "waitAck_1":
+                # Estado: Aguardando o Ack para o pacote de sequência 1 enviado
+                try:
+                    ack_packet = self.rdt_socket.recv(self.bufferSize)  # Tenta receber o Ack
+                except timeout:
+                    next_action = "ReSendPktSeq_1"  # Em caso de timeout, a ação é reenviar o pacote de sequência 1
+                else:
+                    ack_packet = struct.unpack_from('i', ack_packet)  # Decodifica o pacote Ack
+                    ack_value = ack_packet[0]  # Obtém o valor Ack do pacote
+                    if ack_value == 1:
+                        next_action = "stopTimer_1"  # Se o Ack for 1, a ação é parar o timer
+                        if self.fimPck:  # Se for o fim do pacote, retorna ao estado inicial
+                            self.stateS = "waitCall_0"
+                            break
+                    else:
+                        next_action = "ReSendPktSeq_1"  # Se o Ack não for 1, reenvia o pacote de sequência 1
+
+            if next_action == "sendPktSeq_0":
+                encoded_data = message_content.encode()  # Codifica o conteúdo da mensagem
                 self.fimPck = 1
-                self.sendPkt(data, 0)                    
+                self.sendPkt(encoded_data, 0)                    
                 self.stateS = "waitAck_0"
 
-            elif action == "stopTimer_0":
-                self.rdt_socket.settimeout(self.time) #reseta timer
+            elif next_action == "stopTimer_0":
+                self.rdt_socket.settimeout(self.time)  # Reseta o timer do socket
                 self.stateS = "waitCall_1"
 
-            elif action == "sendPktSeq_1":
-                data = mensagem.encode()    # Lê 1024 bytes do arquivo
+            elif next_action == "sendPktSeq_1":
+                encoded_data = message_content.encode()  # Codifica o conteúdo da mensagem
                 self.fimPck = 1
-                self.sendPkt(data, 1)
+                self.sendPkt(encoded_data, 1)
                 self.stateS = "waitAck_1"
 
-            elif action == "stopTimer_1":
-                self.rdt_socket.settimeout(self.time) #reseta timer
+            elif next_action == "stopTimer_1":
+                self.rdt_socket.settimeout(self.time)  # Reseta o timer do socket
                 self.stateS = "waitCall_0"
 
-            elif action == "ReSendPktSeq_0":
+            elif next_action == "ReSendPktSeq_0":
                 self.fimPck = 1
-                self.sendPkt(data, 0)
+                self.sendPkt(encoded_data, 0)
                 self.stateS = "waitAck_0"
-            
-            elif action == "ReSendPktSeq_1":
+                
+            elif next_action == "ReSendPktSeq_1":
                 self.fimPck = 1
-                self.sendPkt(data, 1)
+                self.sendPkt(encoded_data, 1)
                 self.stateS = "waitAck_1"     
 
+    # Fim Karol
+
+    # Inicio Miriam
+                        
     def waiting(self):
         while True:
-            # Use select para monitorar o socket e a entrada do terminal
-            inputs, _, _ = select.select([self.rdt_socket, sys.stdin], [], [])
+            # Monitora múltiplas fontes de entrada (sockets e entrada do terminal) para leitura.
+            monitored_inputs, _, _ = select.select([self.rdt_socket, sys.stdin], [], [])
 
-            for sock in inputs:
-                if sock == self.rdt_socket:
-                    # Aguarde dados do cliente
-                    data, client_address = self.rdt_socket.recvfrom(1024)
-                    self.isReceptor()
+            for source in monitored_inputs:
+                if source == self.rdt_socket:
+                    # Recebe dados do cliente através do socket.
+                    received_data, client_address = self.rdt_socket.recvfrom(1024)
+                    self.isReceptor()  # Determina o papel atual do objeto na comunicação.
                     if self.type == "s":
                         if self.flag == 0 and self.flag_reservar:
-                            # Spam de reserva ou de frases que precisam ser diferentes para os usuários.
-
-                            self.isSender(self.payload[-44:]) # Esse formato sempre será o mesmo por isso posso fazer dessa forma
-                            self.broadcast_dif(self.payload[:-44], self.addr)
-
+                            # Trata mensagens de reserva diferenciando-as para os usuários.
+                            self.isSender(self.payload[-44:])  # Identifica a parte específica do payload.
+                            self.broadcast_dif(self.payload[:-44], self.addr)  # Envia a mensagem diferenciada.
                             self.flag_reservar = False
 
                         elif self.flag == 0 and self.flag_cancelar:
-                            self.isSender(self.payload[-56:])
-                            self.broadcast_dif(self.payload[:-56], self.addr)
-
+                            # Trata mensagens de cancelamento diferenciando-as para os usuários.
+                            self.isSender(self.payload[-56:])  # Identifica a parte específica do payload para cancelamento.
+                            self.broadcast_dif(self.payload[:-56], self.addr)  # Envia a mensagem de cancelamento diferenciada.
                             self.flag_cancelar = False
 
-                        elif self.flag == 0 and self.flag_reservar == False:
+                        elif self.flag == 0 and not self.flag_reservar:
+                            # Caso não haja flags específicas, envia o payload como está.
                             self.broadcast(self.payload)
+
                         elif self.flag == 1:
+                            # Trata o caso de uma flag específica sendo setada, indicando um estado particular.
                             self.isSender(self.payload)
                             self.flag = 0
-                        elif self.flag == 2:
-                            self.flag = 0
-                        else:
-                            self.flag = 0
-                    elif self.flag == 666:
-                            return
-                        
-                           
-                elif sock == sys.stdin:
-                    # Se o usuário digitou algo no terminal, encerre o servidor
-                    input_text = sys.stdin.readline()
-                    input_text = input_text.strip()
-                    self.isSender(input_text)
 
-                    if input_text == "bye": return
-                        
+                        elif self.flag == 2:
+                            # Reseta a flag após tratar o caso específico.
+                            self.flag = 0
+
+                        else:
+                            # Reseta a flag em outros casos não especificados.
+                            self.flag = 0
+
+                    elif self.flag == 666:
+                        # Código de saída, encerra o loop e a função.
+                        return
+                            
+                elif source == sys.stdin:
+                    # Lida com a entrada do usuário pelo terminal.
+                    user_input = sys.stdin.readline().strip()  # Lê e limpa a entrada do usuário.
+                    self.isSender(user_input)  # Envia a entrada do usuário.
+
+                    if user_input == "bye":
+                        # Se o usuário digitar 'bye', encerra o servidor.
+                        return
+    
+    # Fim Miriam

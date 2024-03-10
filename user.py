@@ -21,7 +21,7 @@ def main():
             name = comando[11:]
             User = Rdt(name)
 
-            if User.isSender("SYN") == 24:
+            if User.isSender("SYN") == 2000:
                 print("Nome já utilizado tente outro")
             else:
                 User.waiting()
