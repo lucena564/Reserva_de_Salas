@@ -300,14 +300,15 @@ class Rdt:
                             self.payload = self.mensagem_help
 
                         else:
+                            # Só para ter uma mensagem do servidor para ter certeza que o comando não existe.
                             if self.type == "s": 
                                 date_str = str(datetime.now())
                                 payload = f"{self.addr[0]}:{self.addr[1]}/~{payload}" + " " + date_str
-                            if "~" in payload and self.type == 'u': 
-                                nome1 = payload.split("~")
-                                nome2 = nome1[1].split(":")
 
+                            # print direcionado ao servidor, para ter controle que o comando não foi encontrado
                             print(payload)
+
+                            # Atualizando a mensagem para aparecer dessa forma no terminal do usuário que solicitou um comando que não existe.
                             self.payload = "Comando não encontrado, verifique todos os comandos disponíveis utilizando o comando --help"
                             self.flag = 1
 
@@ -459,15 +460,15 @@ class Rdt:
                             self.payload =   self.mensagem_help
 
                         else:
+                            # Só para ter uma mensagem do servidor para ter certeza que o comando não existe.
                             if self.type == "s": 
                                 date_str = str(datetime.now())
                                 payload = f"{self.addr[0]}:{self.addr[1]}/~{payload}" + " " + date_str
-                            if "~" in payload and self.type == 'u': 
-                                nome1 = payload.split("~")
-                                nome2 = nome1[1].split(":")
 
                             # print direcionado ao servidor, para ter controle que o comando não foi encontrado
                             print(payload)
+
+                            # Atualizando a mensagem para aparecer dessa forma no terminal do usuário que solicitou um comando que não existe.
                             self.payload = "Comando não encontrado, verifique todos os comandos disponíveis utilizando o comando --help"
                             self.flag = 1
                             
