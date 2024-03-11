@@ -136,12 +136,8 @@ class Rdt:
         
     def _check(self, string):
         padrao = r'\w+:\scheck\s(E101|E102|E103|E104|E105)\s(SEG|TER|QUA|QUI|SEX)$'
-        padrao2 = r'\w+:\scheck\s(E101|E102|E103|E104|E105)\s(SEG|TER|QUA|QUI|SEX)\s(1[0-8]|[89])$'
 
         if re.match(padrao, string):
-            return True
-        
-        elif re.match(padrao2, string):
             return True
         
         else:
