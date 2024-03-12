@@ -601,7 +601,7 @@ class Rdt:
                             self.broadcast_dif(self.payload[:-56], self.addr)  # Envia a mensagem de cancelamento diferenciada.
                             self.flag_cancelar = False
 
-                        elif self.flag == 0 and not self.flag_reservar:
+                        elif self.flag == 0:
                             # Caso não haja flags específicas, envia o payload como está.
                             self.broadcast(self.payload)
 
