@@ -610,17 +610,9 @@ class Rdt:
                             self.isSender(self.payload)
                             self.flag = 0
 
-                        elif self.flag == 2:
-                            # Reseta a flag após tratar o caso específico.
-                            self.flag = 0
-
                         else:
                             # Reseta a flag em outros casos não especificados.
                             self.flag = 0
-
-                    elif self.flag == 666:
-                        # Código de saída, encerra o loop e a função.
-                        return
                             
                 elif source == sys.stdin:
                     # Lida com a entrada do usuário pelo terminal.
